@@ -2,18 +2,32 @@
     "manifest_version": 3,
     "name": "VerifSol",
     "version": "1.0",
-    "description": "Verify Solana-signed emails directly in Gmail",
-    "permissions": ["scripting", "activeTab"],
+    "description": "Sign and verify email identity using Solana",
+    "permissions": ["scripting", "activeTab", "tabs"],
     "host_permissions": ["https://mail.google.com/*"],
+    "background": {
+      "service_worker": "background.js"
+    },
+    "action": {
+      "default_popup": "popup/popup.html",
+      "default_icon": "icons/icon128.png"
+    },
     "content_scripts": [
       {
         "matches": ["https://mail.google.com/*"],
         "js": ["content/content.js"]
       }
     ],
+    "web_accessible_resources": [
+      {
+        "resources": [
+          "scripts/injector.js",
+          "scripts/manual-verify.js"
+        ],
+        "matches": ["https://mail.google.com/*"]
+      }
+    ],
     "icons": {
-      "16": "icons/icon16.png",
-      "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     }
   }
