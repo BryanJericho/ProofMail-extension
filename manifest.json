@@ -1,6 +1,6 @@
 {
     "manifest_version": 3,
-    "name": "VerifSol",
+    "name": "ProofMail",
     "version": "1.0",
     "description": "Sign and verify email identity using Solana",
     "permissions": ["scripting", "activeTab", "tabs"],

@@ -9,7 +9,7 @@ const composeInterval = setInterval(() => {
   const toolbar = document.querySelector(".aeJ");
   if (toolbar && !document.querySelector("#verifsol-sign-btn")) {
     const btn = document.createElement("button");
-    btn.innerText = "🔏 VerifSol Sign Email";
+    btn.innerText = "VerifSol Sign Email";
     btn.id = "verifsol-sign-btn";
     // --- START: Perubahan gaya tombol ---
     btn.style.cssText = `
