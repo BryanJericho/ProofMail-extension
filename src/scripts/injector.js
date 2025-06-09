@@ -29,7 +29,6 @@ window.addEventListener("message", async (event) => {
         publicKey: signed.publicKey.toString()
       }, "*");
     } catch (err) {
-      console.error("Signature failed", err);
       alert("❌ Signature failed. Please ensure you are connected to a Solana wallet.");
     }
   }

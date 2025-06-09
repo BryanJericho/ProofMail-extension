@@ -4,7 +4,10 @@
     "version": "1.0",
     "description": "Sign and verify email identity using Solana",
     "permissions": ["scripting", "activeTab", "tabs"],
-    "host_permissions": ["https://mail.google.com/*"],
+    "host_permissions": [
+      "https://mail.google.com/*",
+      "http://127.0.0.1:3000/*"
+    ],
     "background": {
       "service_worker": "background.js"
     },

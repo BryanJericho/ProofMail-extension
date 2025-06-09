@@ -9,15 +9,6 @@ script.src = chrome.runtime.getURL("./src/scripts/injector.js");
 script.type = "module";
 (document.head || document.documentElement).appendChild(script);
 
-const trustedSenders = {
-  "DaB55UmS5wTrGCko7FxVpRmZhUgVRVWfGf1xkcm9AXzi": {
-    name: "Bryan Jericho"
-  },
-  "G1cypHBckfuPXaSdsJMHSL2Xhr3PLPs8FjeKCzJWMWdf": {
-    name: "ztz"
-  },
-};
-
 const toolbarMutationObserver = new MutationObserver(async () => {
   const toolbar = document.querySelector(".aeJ") || document.querySelector(".aDh") || document.querySelector('[gh="mtb"]');
   if (!toolbar) {
@@ -102,120 +93,138 @@ window.addEventListener("message", async (event) => {
   }
 });
 
-async function verifyAndBadge(message, signature, pubKey) {
-  const emailView = document.querySelector('.a3s');
-  if (!emailView) {
-    // alert("❌ Tidak menemukan isi email.");
-    return false;
-  }
+async function fetchUserFromPublicKey(pubKey) {
+  try {
+    const response = await fetch(`http://127.0.0.1:3000/api/by-pubkey/${pubKey}`, {
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
 
+    if (response.status !== 200) {
+      return null;
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    return null;
+  }
+}
+
+const BADGE_BASE_STYLE = `
+  padding: 10px 15px;
+  color: white;
+  border-radius: 8px;
+  margin-left: 15px;
+  margin-top: 15px;
+  margin-bottom: 15px;
+  font-size: 14px;
+  line-height: 1.4;
+`;
+
+function createSuccessBadge(senderName, pubKey) {
+  return `<div style="
+    ${BADGE_BASE_STYLE}
+    background: linear-gradient(90deg, #22c55e 0%, #15803d 100%); /* Gradien hijau */
+    box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4); /* Glow hijau */
+    border: 1px solid rgba(34, 197, 94, 0.6);
+    ">
+    ✅ ProofMail: Valid signature from <strong>${senderName}</strong><br>
+    🔗 Wallet: ${pubKey.slice(0, 8)}...
+  </div>`;
+}
+
+function createWarningBadge(senderName) {
+  return `<div style="
+    ${BADGE_BASE_STYLE}
+    background: linear-gradient(90deg, #fbbf24 0%, #b45309 100%); /* Gradien kuning */
+    box-shadow: 0 4px 15px rgba(250, 186, 36, 0.4); /* Glow kuning */
+    border: 1px solid rgba(250, 186, 36, 0.6);
+    ">
+    ⚠️ ProofMail: Valid signature from <strong>${senderName}</strong> (non-trusted)<br>
+  </div>`;
+}
+
+function createErrorBadge(message, senderName = null) {
+  const content = senderName
+    ? `❌ ProofMail: Invalid signature from <strong>${senderName}</strong><br>`
+    : `❌ ProofMail: ${message}<br>`;
+
+  return `<div style="
+    ${BADGE_BASE_STYLE}
+    background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%); /* Gradien merah */
+    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4); /* Glow merah */
+    border: 1px solid rgba(239, 68, 68, 0.6);
+    ">
+    ${content}
+  </div>`;
+}
+
+function createBadgeElement(elementContent = null) {
   const oldBadge = document.querySelector("#proofmail-verify-badge");
   if (oldBadge) {
     oldBadge.remove();
   }
 
-  // TODO: Create individual functions for creating badges with different styles
-  // to avoid code duplication
   const badge = document.createElement("div");
   badge.id = "proofmail-verify-badge";
-
+  
   const emailBody = document.querySelector("div[role='listitem'], div[aria-label='Message Body']");
   if (!emailBody) {
-    // alert("❌ Tidak menemukan body email.");
-    return false;
+    return null;
+  }
+
+  if (elementContent) {
+    badge.innerHTML = elementContent;
   }
 
   emailBody.prepend(badge);
+  return badge;
+}
+
+async function verifyAndBadge(message, signature, pubKey) {
+  const emailView = document.querySelector('.a3s');
+  if (!emailView) {
+    return false;
+  }
+
+  const badge = createBadgeElement();
+  if (!badge) {
+    return false;
+  }
 
   try {
     const msgBytes = new TextEncoder().encode(message);
     const sigBytes = Uint8Array.from(atob(signature), c => c.charCodeAt(0));
     if (sigBytes.length !== 64) {
-      // alert("❌ Signature tidak valid. Pastikan signature adalah string base64 yang valid.");
+      badge.innerHTML = createErrorBadge("Invalid signature length.");
       return false;
     }
 
     const pubKeyBytes = bs58.decode(pubKey);
     if (pubKeyBytes.length !== 32) {
-      // alert("❌ Public key tidak valid. Pastikan public key adalah string base58 yang valid.");
+      badge.innerHTML = createErrorBadge("Invalid public key length.");
       return false;
     }
 
+    const userData = await fetchUserFromPublicKey(pubKey);
+    const senderName = userData?.name || pubKey.slice(0, 8) + "...";
+
     const isValid = nacl.sign.detached.verify(msgBytes, sigBytes, pubKeyBytes);
-
-    const senderInfo = trustedSenders[pubKey];
-    const senderName = senderInfo ? senderInfo.name : pubKey.slice(0, 10) + "...";
-
     if (isValid) {
-      if (!senderInfo) {
-        badge.innerHTML = `<div style="
-    padding:10px 15px; /* Padding lebih besar */
-    background: linear-gradient(90deg, #fbbf24 0%, #b45309 100%); /* Gradien kuning */
-    color:white;
-    border-radius:8px; /* Sudut membulat */
-    margin-left: 15px;
-    margin-top: 15px;
-    margin-bottom:15px;
-    box-shadow: 0 4px 15px rgba(250, 186, 36, 0.4); /* Glow kuning */
-    font-size: 14px;
-    line-height: 1.4;
-    border: 1px solid rgba(250, 186, 36, 0.6);
-    ">
-      ⚠️ ProofMail: Valid signature from <strong>${senderName}</strong> (non-trusted)<br>
-  </div>`;
+      if (!userData?.emailVerified) {
+        badge.innerHTML = createWarningBadge(senderName);
       } else {
-        badge.innerHTML = `<div style="
-    padding:10px 15px; /* Padding lebih besar */
-    background: linear-gradient(90deg, #22c55e 0%, #15803d 100%); /* Gradien hijau */
-    color:white;
-    border-radius:8px; /* Sudut membulat */
-    margin-left: 15px;
-    margin-top: 15px;
-    margin-bottom:15px;
-    box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4); /* Glow hijau */
-    font-size: 14px;
-    line-height: 1.4;
-    border: 1px solid rgba(34, 197, 94, 0.6);
-    ">
-    ✅ ProofMail: Valid signature from <strong>${senderName}</strong><br>
-    🔗 Wallet: ${pubKey.slice(0, 20)}...
-  </div>`;
+        badge.innerHTML = createSuccessBadge(senderName, pubKey);
       }
     } else {
-      badge.innerHTML = `<div style="
-    padding:10px 15px;
-    background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%); /* Gradien merah */
-    color:white;
-    border-radius:8px;
-    margin-left: 15px;
-    margin-top: 15px;
-    margin-bottom:15px;
-    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4); /* Glow merah */
-    font-size: 14px;
-    line-height: 1.4;
-    border: 1px solid rgba(239, 68, 68, 0.6);
-    ">
-    ❌ ProofMail: Invalid signature from <strong>${senderName}</strong><br>
-  </div>`;
+      badge.innerHTML = createErrorBadge(null, senderName);
     }
 
     return true;
   } catch (error) {
-    badge.innerHTML = `<div style="
-  padding:10px 15px;
-  background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%); /* Gradien merah */
-  color:white;
-  border-radius:8px;
-  margin-left: 15px;
-  margin-top: 15px;
-  margin-bottom:15px;
-  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4); /* Glow merah */
-  font-size: 14px;
-  line-height: 1.4;
-  border: 1px solid rgba(239, 68, 68, 0.6);
-  ">
-  ❌ ProofMail: Signature verification failed.<br>
-</div>`;
+    badge.innerHTML = createErrorBadge("Signature verification failed.");
     console.error("Signature verification failed", error);
     return false;
   }
@@ -224,31 +233,26 @@ async function verifyAndBadge(message, signature, pubKey) {
 window.proofmailManualCheck = async function () {
   const emailView = document.querySelector('.a3s');
   if (!emailView) {
-    // alert("❌ Tidak menemukan isi email.");
     return false;
   }
 
   const emailText = emailView.innerText;
   if (!emailText || emailText.trim() === "") {
-    // alert("❌ Tidak menemukan isi email yang valid.");
     return false;
   }
 
   const messageMatch = emailText.match(/([\s\S]+?)\n\n---/);
   if (!messageMatch || !messageMatch[1] || messageMatch[1].trim() === "") {
-    // alert("❌ Tidak menemukan pesan email yang valid.");
     return false;
   }
 
   const signatureMatch = emailText.match(/Signature: (.+)/);
   if (!signatureMatch || !signatureMatch[1] || signatureMatch[1].trim() === "") {
-    // alert("❌ Tidak menemukan signature di email.");
     return false;
   }
 
   const pubkeyMatch = emailText.match(/Signed by: (.+)/);
   if (!pubkeyMatch || !pubkeyMatch[1] || pubkeyMatch[1].trim() === "") {
-    // alert("❌ Tidak menemukan public key di email.");
     return false;
   }
 
@@ -272,16 +276,12 @@ const emailBodyMutationObserver = new MutationObserver(async () => {
 
   const success = await proofmailManualCheck();
   if (!success) {
-    const fakeBadge = document.createElement("div");
-    fakeBadge.id = "proofmail-verify-badge";
-
-    const emailBody = document.querySelector("div[role='listitem'], div[aria-label='Message Body']");
-    if (!emailBody) {
-      return;
+    if (document.querySelector("#proofmail-verify-badge")) {
+      return; // Badge already created, no need to create again
     }
 
-    emailBody.prepend(fakeBadge);
-    return;
+    // Create an empty badge to prevent further attempts
+    createBadgeElement();
   }
 });
 
