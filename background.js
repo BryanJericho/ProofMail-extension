@@ -1,1 +1,1 @@
-console.log("VerifSol background service worker running");
+console.log("ProofMail background service worker running");
