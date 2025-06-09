@@ -9,21 +9,18 @@
       "service_worker": "background.js"
     },
     "action": {
-      "default_popup": "popup/popup.html",
+      "default_popup": "src/popup/popup.html",
       "default_icon": "icons/icon128.png"
     },
     "content_scripts": [
       {
         "matches": ["https://mail.google.com/*"],
-        "js": ["content/content.js"]
+        "js": ["dist/content.js"]
       }
     ],
     "web_accessible_resources": [
       {
-        "resources": [
-          "scripts/injector.js",
-          "scripts/manual-verify.js"
-        ],
+        "resources": ["src/scripts/injector.js"],
         "matches": ["https://mail.google.com/*"]
       }
     ],

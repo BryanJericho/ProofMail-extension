@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    /* Import font dari Google Fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=Inter:wght@400;600;700&display=swap');
+
+    body {
+      font-family: 'Inter', sans-serif; /* Menggunakan Inter untuk teks umum, Orbitron untuk judul jika diinginkan */
+      padding: 25px; /* Padding lebih besar */
+      width: 300px; /* Lebar sedikit lebih besar untuk tampilan yang lebih modern */
+      background: linear-gradient(135deg, #0A1931 0%, #1A2E44 100%); /* Latar belakang gradien biru gelap */
+      color: #E0F2F7; /* Warna teks putih kebiruan */
+      box-sizing: border-box;
+      overflow: hidden; /* Mengatasi potensi scroll jika ada efek */
+      border-radius: 12px; /* Sedikit sudut membulat untuk body */
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4); /* Bayangan dalam untuk body */
+    }
+
+    h3 {
+      text-align: center;
+      color: #87CEEB; /* Biru langit/cerah untuk judul */
+      margin-bottom: 25px;
+      font-weight: 700;
+      font-size: 28px; /* Ukuran font lebih besar */
+      letter-spacing: 1.5px; /* Spasi huruf untuk efek teknologi */
+      text-shadow: 0 0 10px rgba(135, 206, 235, 0.6); /* Efek glow pada judul */
+      font-family: 'Orbitron', sans-serif; /* Font futuristik untuk judul */
+    }
+
+    p {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #A0D0E0; /* Warna teks deskripsi sedikit lebih gelap dari judul */
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px 18px; /* Padding tombol lebih nyaman */
+      margin: 12px 0; /* Margin antar tombol */
+      font-weight: 600;
+      font-size: 17px;
+      border: none;
+      border-radius: 10px; /* Sudut lebih membulat */
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); /* Transisi lebih kompleks */
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); /* Bayangan normal */
+      backdrop-filter: blur(5px); /* Efek glassmorphism */
+      -webkit-backdrop-filter: blur(5px);
+    }
+
+    /* Gaya untuk tombol utama (Kirim dengan Signature) */
+    button#sign-mode {
+      background: linear-gradient(45deg, #007BFF 0%, #0056b3 100%); /* Gradien biru utama */
+      color: white;
+      border: 1px solid rgba(0, 123, 255, 0.5); /* Border transparan */
+    }
+
+    button#sign-mode:hover {
+      background: linear-gradient(45deg, #0056b3 0%, #003F80 100%); /* Gradien lebih gelap saat hover */
+      transform: translateY(-3px) scale(1.02); /* Efek naik dan sedikit membesar */
+      box-shadow: 0 8px 25px rgba(0, 123, 255, 0.4); /* Glow biru saat hover */
+      border: 1px solid rgba(0, 123, 255, 0.8);
+    }
+
+    button#sign-mode:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Gaya untuk tombol sekunder (Cek Verifikasi) */
+    button#verify-mode {
+      background: rgba(255, 255, 255, 0.1); /* Latar belakang transparan putih */
+      color: #87CEEB; /* Warna teks biru seperti judul */
+      border: 1px solid rgba(135, 206, 235, 0.4); /* Border biru muda transparan */
+    }
+
+    button#verify-mode:hover {
+      background: rgba(255, 255, 255, 0.2); /* Sedikit lebih opaque saat hover */
+      color: #E0F2F7; /* Warna teks putih kebiruan saat hover */
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 8px 25px rgba(135, 206, 235, 0.3); /* Glow biru muda saat hover */
+      border: 1px solid rgba(135, 206, 235, 0.8);
+    }
+
+    button#verify-mode:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+  </style>
+</head>
+<body>
+  <h3>ProofMail</h3>
+  <p>Pilih mode:</p>
+  <button id="sign-mode">Kirim dengan Signature</button>
+  <button id="verify-mode">Cek Verifikasi</button>
+  <script src="popup.js"></script>
+</body>
+</html>
