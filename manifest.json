@@ -18,6 +18,12 @@
         "js": ["dist/content.js"]
       }
     ],
+    "web_accessible_resources": [
+      {
+        "resources": ["src/scripts/injector.js"],
+        "matches": ["https://mail.google.com/*"]
+      }
+    ],
     "icons": {
       "128": "icons/icon128.png"
     }

@@ -4,6 +4,11 @@ import nacl from 'tweetnacl';
 window.bs58 = bs58;
 window.nacl = nacl;
 
+const script = document.createElement("script");
+script.src = chrome.runtime.getURL("./src/scripts/injector.js");
+script.type = "module";
+(document.head || document.documentElement).appendChild(script);
+
 const trustedSenders = {
   "DaB55UmS5wTrGCko7FxVpRmZhUgVRVWfGf1xkcm9AXzi": {
     name: "Bryan Jericho"
@@ -13,8 +18,16 @@ const trustedSenders = {
   },
 };
 
-const toolbarInterval = setInterval(() => {
+const toolbarMutationObserver = new MutationObserver(async () => {
   const toolbar = document.querySelector(".aeJ") || document.querySelector(".aDh") || document.querySelector('[gh="mtb"]');
+  if (!toolbar) {
+    return;
+  }
+
+  const existingButton = document.getElementById("proofmail-sign-btn");
+  if (existingButton) {
+    return;
+  }
 
   const button = document.createElement("button");
   button.innerText = "ProofMail Sign Email";
@@ -49,13 +62,13 @@ const toolbarInterval = setInterval(() => {
   };
 
   button.onclick = () => {
-    const emailBodyEl = document.querySelector('.Am.Al.editable');
-    if (!emailBodyEl) {
+    const emailBody = document.querySelector('.Am.Al.editable');
+    if (!emailBody) {
       alert("Email body not found");
       return;
     }
 
-    const message = emailBodyEl.innerText;
+    const message = emailBody.innerText;
 
     window.postMessage({
       type: "PROOFMAILSIGN",
@@ -64,46 +77,15 @@ const toolbarInterval = setInterval(() => {
   };
 
   toolbar.prepend(button);
-  if (document.querySelector("#proofmail-sign-btn")) {
-    clearInterval(toolbarInterval);
-  }
-}, 1000);
+});
+
+toolbarMutationObserver.observe(document.body, {
+  childList: true,
+  subtree: true
+});
 
 window.addEventListener("message", async (event) => {
-  if (event.source !== window) {
-    return;
-  }
-
-  if (event.data.type === "PROOFMAILSIGN") {
-    if (!window.solana || !window.solana.connect || !window.solana.signMessage) {
-      alert("❌ Solana wallet not detected. Please install a Solana wallet extension.");
-      return;
-    }
-
-    const message = event.data.message;
-
-    if (!message || message.trim() === "") {
-      alert("❌ No message to sign. Please ensure the email body is not empty.");
-      return;
-    }
-
-    try {
-      await window.solana.connect();
-      const signed = await window.solana.signMessage(
-        new TextEncoder().encode(message),
-        "utf8"
-      );
-
-      window.postMessage({
-        type: "PROOFMAILSIGNED",
-        signature: btoa(String.fromCharCode(...signed.signature)),
-        publicKey: signed.publicKey.toString()
-      }, "*");
-    } catch (err) {
-      console.error("Signature failed", err);
-      alert("❌ Signature failed. Please ensure you are connected to a Solana wallet.");
-    }
-  } else if (event.data.type === "PROOFMAILSIGNED") {
+  if (event.data.type === "PROOFMAILSIGNED") {
     const emailBodyEl = document.querySelector('.Am.Al.editable');
     if (!emailBodyEl) {
       alert("Email body not found");
@@ -123,76 +105,102 @@ window.addEventListener("message", async (event) => {
 async function verifyAndBadge(message, signature, pubKey) {
   const emailView = document.querySelector('.a3s');
   if (!emailView) {
-    alert("❌ Tidak menemukan isi email.");
+    // alert("❌ Tidak menemukan isi email.");
     return false;
   }
-
-  const msgBytes = new TextEncoder().encode(message);
-  const sigBytes = Uint8Array.from(atob(signature), c => c.charCodeAt(0));
-  if (sigBytes.length !== 64) {
-    alert("❌ Signature tidak valid. Pastikan signature adalah string base64 yang valid.");
-    return false;
-  }
-
-  const pubKeyBytes = bs58.decode(pubKey);
-  if (pubKeyBytes.length !== 32) {
-    alert("❌ Public key tidak valid. Pastikan public key adalah string base58 yang valid.");
-    return false;
-  }
-
-  const isValid = nacl.sign.detached.verify(msgBytes, sigBytes, pubKeyBytes);
-
-  const senderInfo = trustedSenders[pubKey];
-  const senderName = senderInfo ? senderInfo.name : pubKey.slice(0, 10) + "...";
 
   const oldBadge = document.querySelector("#proofmail-verify-badge");
   if (oldBadge) {
     oldBadge.remove();
   }
 
+  // TODO: Create individual functions for creating badges with different styles
+  // to avoid code duplication
   const badge = document.createElement("div");
   badge.id = "proofmail-verify-badge";
 
   const emailBody = document.querySelector("div[role='listitem'], div[aria-label='Message Body']");
+  if (!emailBody) {
+    // alert("❌ Tidak menemukan body email.");
+    return false;
+  }
+
   emailBody.prepend(badge);
 
-  if (isValid) {
-    if (!senderInfo) {
-      badge.innerHTML = `<div style="
-  padding:10px 15px; /* Padding lebih besar */
-  background: linear-gradient(90deg, #fbbf24 0%, #b45309 100%); /* Gradien kuning */
-  color:white;
-  border-radius:8px; /* Sudut membulat */
-  margin-left: 15px;
-  margin-top: 15px;
-  margin-bottom:15px;
-  box-shadow: 0 4px 15px rgba(250, 186, 36, 0.4); /* Glow kuning */
-  font-size: 14px;
-  line-height: 1.4;
-  border: 1px solid rgba(250, 186, 36, 0.6);
-  ">
-    ⚠️ ProofMail: Valid signature from <strong>${senderName}</strong> (non-trusted)<br>
-</div>`;
+  try {
+    const msgBytes = new TextEncoder().encode(message);
+    const sigBytes = Uint8Array.from(atob(signature), c => c.charCodeAt(0));
+    if (sigBytes.length !== 64) {
+      // alert("❌ Signature tidak valid. Pastikan signature adalah string base64 yang valid.");
+      return false;
+    }
+
+    const pubKeyBytes = bs58.decode(pubKey);
+    if (pubKeyBytes.length !== 32) {
+      // alert("❌ Public key tidak valid. Pastikan public key adalah string base58 yang valid.");
+      return false;
+    }
+
+    const isValid = nacl.sign.detached.verify(msgBytes, sigBytes, pubKeyBytes);
+
+    const senderInfo = trustedSenders[pubKey];
+    const senderName = senderInfo ? senderInfo.name : pubKey.slice(0, 10) + "...";
+
+    if (isValid) {
+      if (!senderInfo) {
+        badge.innerHTML = `<div style="
+    padding:10px 15px; /* Padding lebih besar */
+    background: linear-gradient(90deg, #fbbf24 0%, #b45309 100%); /* Gradien kuning */
+    color:white;
+    border-radius:8px; /* Sudut membulat */
+    margin-left: 15px;
+    margin-top: 15px;
+    margin-bottom:15px;
+    box-shadow: 0 4px 15px rgba(250, 186, 36, 0.4); /* Glow kuning */
+    font-size: 14px;
+    line-height: 1.4;
+    border: 1px solid rgba(250, 186, 36, 0.6);
+    ">
+      ⚠️ ProofMail: Valid signature from <strong>${senderName}</strong> (non-trusted)<br>
+  </div>`;
+      } else {
+        badge.innerHTML = `<div style="
+    padding:10px 15px; /* Padding lebih besar */
+    background: linear-gradient(90deg, #22c55e 0%, #15803d 100%); /* Gradien hijau */
+    color:white;
+    border-radius:8px; /* Sudut membulat */
+    margin-left: 15px;
+    margin-top: 15px;
+    margin-bottom:15px;
+    box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4); /* Glow hijau */
+    font-size: 14px;
+    line-height: 1.4;
+    border: 1px solid rgba(34, 197, 94, 0.6);
+    ">
+    ✅ ProofMail: Valid signature from <strong>${senderName}</strong><br>
+    🔗 Wallet: ${pubKey.slice(0, 20)}...
+  </div>`;
+      }
     } else {
       badge.innerHTML = `<div style="
-  padding:10px 15px; /* Padding lebih besar */
-  background: linear-gradient(90deg, #22c55e 0%, #15803d 100%); /* Gradien hijau */
-  color:white;
-  border-radius:8px; /* Sudut membulat */
-  margin-left: 15px;
-  margin-top: 15px;
-  margin-bottom:15px;
-  box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4); /* Glow hijau */
-  font-size: 14px;
-  line-height: 1.4;
-  border: 1px solid rgba(34, 197, 94, 0.6);
-  ">
-  ✅ ProofMail: Valid signature from <strong>${senderName}</strong><br>
-  🔗 Wallet: ${pubKey.slice(0, 20)}...
-</div>`;
-      return true;
+    padding:10px 15px;
+    background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%); /* Gradien merah */
+    color:white;
+    border-radius:8px;
+    margin-left: 15px;
+    margin-top: 15px;
+    margin-bottom:15px;
+    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4); /* Glow merah */
+    font-size: 14px;
+    line-height: 1.4;
+    border: 1px solid rgba(239, 68, 68, 0.6);
+    ">
+    ❌ ProofMail: Invalid signature from <strong>${senderName}</strong><br>
+  </div>`;
     }
-  } else {
+
+    return true;
+  } catch (error) {
     badge.innerHTML = `<div style="
   padding:10px 15px;
   background: linear-gradient(90deg, #ef4444 0%, #b91c1c 100%); /* Gradien merah */
@@ -206,8 +214,9 @@ async function verifyAndBadge(message, signature, pubKey) {
   line-height: 1.4;
   border: 1px solid rgba(239, 68, 68, 0.6);
   ">
-  ❌ ProofMail: Invalid signature from <strong>${senderName}</strong><br>
+  ❌ ProofMail: Signature verification failed.<br>
 </div>`;
+    console.error("Signature verification failed", error);
     return false;
   }
 };
@@ -215,31 +224,31 @@ async function verifyAndBadge(message, signature, pubKey) {
 window.proofmailManualCheck = async function () {
   const emailView = document.querySelector('.a3s');
   if (!emailView) {
-    alert("❌ Tidak menemukan isi email.");
+    // alert("❌ Tidak menemukan isi email.");
     return false;
   }
 
   const emailText = emailView.innerText;
   if (!emailText || emailText.trim() === "") {
-    alert("❌ Tidak menemukan isi email yang valid.");
+    // alert("❌ Tidak menemukan isi email yang valid.");
     return false;
   }
 
   const messageMatch = emailText.match(/([\s\S]+?)\n\n---/);
   if (!messageMatch || !messageMatch[1] || messageMatch[1].trim() === "") {
-    alert("❌ Tidak menemukan pesan email yang valid.");
+    // alert("❌ Tidak menemukan pesan email yang valid.");
     return false;
   }
 
   const signatureMatch = emailText.match(/Signature: (.+)/);
   if (!signatureMatch || !signatureMatch[1] || signatureMatch[1].trim() === "") {
-    alert("❌ Tidak menemukan signature di email.");
+    // alert("❌ Tidak menemukan signature di email.");
     return false;
   }
 
   const pubkeyMatch = emailText.match(/Signed by: (.+)/);
   if (!pubkeyMatch || !pubkeyMatch[1] || pubkeyMatch[1].trim() === "") {
-    alert("❌ Tidak menemukan public key di email.");
+    // alert("❌ Tidak menemukan public key di email.");
     return false;
   }
 
@@ -250,14 +259,33 @@ window.proofmailManualCheck = async function () {
   return verifyAndBadge(message, signature, pubKey);
 };
 
-const emailCheckInterval = setInterval(() => {
+const emailBodyMutationObserver = new MutationObserver(async () => {
   const emailView = document.querySelector('.a3s');
   if (!emailView) {
     return;
   }
 
-  (async () => {
-    const success = await proofmailManualCheck();
-    clearInterval(emailCheckInterval);
-  })();
-}, 2000);
+  const badge = document.querySelector("#proofmail-verify-badge");
+  if (badge) {
+    return;
+  }
+
+  const success = await proofmailManualCheck();
+  if (!success) {
+    const fakeBadge = document.createElement("div");
+    fakeBadge.id = "proofmail-verify-badge";
+
+    const emailBody = document.querySelector("div[role='listitem'], div[aria-label='Message Body']");
+    if (!emailBody) {
+      return;
+    }
+
+    emailBody.prepend(fakeBadge);
+    return;
+  }
+});
+
+emailBodyMutationObserver.observe(document.body, {
+  childList: true,
+  subtree: true
+});
